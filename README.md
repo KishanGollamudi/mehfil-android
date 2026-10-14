@@ -1,3 +1,8 @@
+> **This is a fork.** See [NOTICE.md](./NOTICE.md) for details.
+> Original project: [PixelPlayerHQ/PixelPlayerOSS](https://github.com/PixelPlayerHQ/PixelPlayerOSS)
+
+---
+
 
 <p align="center">
   <img src="assets/PixelPlayerOSS.svg" alt="App Icon" height="250"/>
