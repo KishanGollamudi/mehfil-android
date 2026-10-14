@@ -46,8 +46,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.DockedSearchBar
-import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -80,6 +83,8 @@ import com.lostf1sh.pixelplayeross.presentation.components.SmartImage
 import com.lostf1sh.pixelplayeross.presentation.components.SmartImageListTargetSize
 import com.lostf1sh.pixelplayeross.presentation.components.SongInfoBottomSheet
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.PlayerViewModel
+import com.lostf1sh.pixelplayeross.presentation.viewmodel.ServerSearchViewModel
+import com.lostf1sh.pixelplayeross.presentation.components.subcomps.ExpressiveSongListItem
 import com.lostf1sh.pixelplayeross.ui.theme.LocalPixelPlayerDarkTheme
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.PlaylistPlay
@@ -101,6 +106,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusModifier
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.media3.common.util.UnstableApi
@@ -135,6 +143,11 @@ private data class SearchUiSlice(
     val searchResults: ImmutableList<SearchResultItem> = persistentListOf()
 )
 
+private enum class SearchSource {
+    SERVER,
+    LOCAL
+}
+
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -147,6 +160,11 @@ fun SearchScreen(
 ) {
     val searchScreenEnteredAt = remember { android.os.SystemClock.elapsedRealtime() }
     var searchQuery by rememberSaveable { mutableStateOf(playerViewModel.searchQuery) }
+    var searchSource by rememberSaveable { mutableStateOf(SearchSource.SERVER) }
+    val serverSearchViewModel: ServerSearchViewModel = hiltViewModel()
+    var serverResults by remember { mutableStateOf<List<Song>>(emptyList()) }
+    var isServerSearchLoading by remember { mutableStateOf(false) }
+    var serverSearchError by remember { mutableStateOf<String?>(null) }
     val statusBarTopInset = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
     val systemNavBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val navBarCompactMode by playerViewModel.navBarCompactMode.collectAsStateWithLifecycle()
@@ -199,8 +217,30 @@ fun SearchScreen(
         }
     }
 
-    LaunchedEffect(searchQuery, currentFilter) {
-        playerViewModel.performSearch(searchQuery)
+    LaunchedEffect(searchQuery, currentFilter, searchSource) {
+        if (searchSource == SearchSource.LOCAL) {
+            playerViewModel.performSearch(searchQuery)
+        }
+    }
+    LaunchedEffect(searchQuery, searchSource) {
+        if (searchSource != SearchSource.SERVER) return@LaunchedEffect
+        serverResults = emptyList()
+        serverSearchError = null
+        if (searchQuery.isBlank()) {
+            isServerSearchLoading = false
+            return@LaunchedEffect
+        }
+
+        delay(400)
+        isServerSearchLoading = true
+        val result = serverSearchViewModel.searchSongs(searchQuery.trim())
+        result.onSuccess { songs ->
+            serverResults = songs
+        }.onFailure { error ->
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            serverSearchError = error.message ?: "Search failed"
+        }
+        isServerSearchLoading = false
     }
     val searchResults = searchUiState.searchResults
     val handleSongMoreOptionsClick: (Song) -> Unit = { song ->
@@ -260,88 +300,51 @@ fun SearchScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val searchBarInputFieldColors = SearchBarDefaults.inputFieldColors(
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    cursorColor = MaterialTheme.colorScheme.primary
-                )
-
-                Box(
-                    Modifier
+                OutlinedTextField(
+                    modifier = Modifier
                         .weight(1f)
-                        .background(color = Color.Transparent)
-                ) {
-                    DockedSearchBar(
-                        inputField = {
-                            SearchBarDefaults.InputField(
-                                modifier = Modifier.focusRequester(searchInputFocusRequester),
-                                query = searchQuery,
-                                onQueryChange = {
-                                    searchQuery = it
-                                    playerViewModel.updateSearchQuery(it)
-                                },
-                                onSearch = { query ->
-                                    if (query.isNotBlank()) {
-                                        playerViewModel.onSearchQuerySubmitted(query)
-                                    }
-                                    keyboardController?.hide()
-                                },
-                                expanded = false,
-                                onExpandedChange = {},
-                                placeholder = {
-                                    Text(
-                                        stringResource(R.string.search_placeholder),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Search,
-                                        contentDescription = stringResource(R.string.cd_search_icon),
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                },
-                                trailingIcon = {
-                                    if (searchQuery.isNotBlank()) {
-                                        IconButton(
-                                            onClick = {
-                                                searchQuery = ""
-                                                playerViewModel.updateSearchQuery("")
-                                            },
-                                            modifier = Modifier
-                                                .size(48.dp)
-                                                .clip(CircleShape)
-                                                .background(
-                                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
-                                                )
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.Close,
-                                                contentDescription = stringResource(R.string.cd_clear_search_query),
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    }
-                                },
-                                colors = searchBarInputFieldColors
-                            )
-                        },
-                        expanded = false,
-                        onExpandedChange = {},
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(searchbarCornerRadius)),
-                        colors = SearchBarDefaults.colors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                            dividerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                            inputFieldColors = searchBarInputFieldColors
-                        ),
-                        content = {}
-                    )
-                }
+                        .focusRequester(searchInputFocusRequester),
+                    value = searchQuery,
+                    onValueChange = {
+                        searchQuery = it
+                        playerViewModel.updateSearchQuery(it)
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            if (searchQuery.isNotBlank() && searchSource == SearchSource.LOCAL) {
+                                playerViewModel.onSearchQuerySubmitted(searchQuery)
+                            }
+                            keyboardController?.hide()
+                        }
+                    ),
+                    shape = RoundedCornerShape(searchbarCornerRadius),
+                    placeholder = {
+                        Text("Search songs, artists, moods…")
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Search,
+                            contentDescription = stringResource(R.string.cd_search_icon)
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotBlank()) {
+                            IconButton(
+                                onClick = {
+                                    searchQuery = ""
+                                    playerViewModel.updateSearchQuery("")
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = stringResource(R.string.cd_clear_search_query)
+                                )
+                            }
+                        }
+                    }
+                )
 
                 FilledIconButton(
                     modifier = Modifier.padding(bottom = 2.dp),
@@ -358,6 +361,66 @@ fun SearchScreen(
                 }
             }
 
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
+            ) {
+                SegmentedButton(
+                    selected = searchSource == SearchSource.SERVER,
+                    onClick = { searchSource = SearchSource.SERVER },
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                ) {
+                    Text("Server")
+                }
+                SegmentedButton(
+                    selected = searchSource == SearchSource.LOCAL,
+                    onClick = { searchSource = SearchSource.LOCAL },
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                ) {
+                    Text("Local")
+                }
+            }
+
+            if (searchSource == SearchSource.SERVER) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    when {
+                        searchQuery.isBlank() -> Text("Type to search")
+                        isServerSearchLoading -> CircularProgressIndicator()
+                        serverSearchError != null -> Text(
+                            text = serverSearchError.orEmpty(),
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        )
+                        serverResults.isEmpty() -> Text("No tracks found")
+                        else -> LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                bottom = systemNavBarInset + bottomBarHeightDp + MiniPlayerHeight + 24.dp
+                            )
+                        ) {
+                            items(serverResults, key = { it.id }) { song ->
+                                ExpressiveSongListItem(
+                                    song = song,
+                                    isPlaying = stablePlayerState.currentSong?.id == song.id && stablePlayerState.isPlaying,
+                                    onClick = {
+                                        playerViewModel.showAndPlaySong(
+                                            song,
+                                            serverResults,
+                                            "Server Search"
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
             val showGenreBrowse by remember(searchQuery) { derivedStateOf { searchQuery.isBlank() } }
             AnimatedContent(
                 targetState = showGenreBrowse,
@@ -432,6 +495,7 @@ fun SearchScreen(
                                     navController = navController
                                 )
                             }
+                        }
                         }
                     }
                 }

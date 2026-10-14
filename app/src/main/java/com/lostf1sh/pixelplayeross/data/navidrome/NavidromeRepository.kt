@@ -664,14 +664,18 @@ class NavidromeRepository @Inject constructor(
     /**
      * Search for songs on the server.
      */
-    suspend fun searchSongs(query: String, limit: Int = 30): Result<List<Song>> {
+    suspend fun searchSongs(
+        query: String,
+        limit: Int = 30,
+        offset: Int = 0
+    ): Result<List<Song>> {
         if (!isLoggedIn) {
             return Result.failure(Exception("Not logged in"))
         }
 
         return withContext(Dispatchers.IO) {
             try {
-                val result = api.searchSongs(query, count = limit)
+                val result = api.searchSongs(query, count = limit, offset = offset)
                 if (result.isFailure) {
                     return@withContext Result.failure(
                         result.exceptionOrNull() ?: Exception("Search failed")

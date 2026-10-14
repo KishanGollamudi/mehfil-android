@@ -383,13 +383,15 @@ class NavidromeApiService @Inject constructor(
         query: String,
         artistCount: Int = 10,
         albumCount: Int = 20,
-        songCount: Int = 30
+        songCount: Int = 30,
+        songOffset: Int = 0
     ): Result<JSONObject> {
         val params = mapOf(
             "query" to query,
             "artistCount" to artistCount.toString(),
             "albumCount" to albumCount.toString(),
-            "songCount" to songCount.toString()
+            "songCount" to songCount.toString(),
+            "songOffset" to songOffset.toString()
         )
         return requestAndParse("search3", params)
     }
@@ -397,8 +399,18 @@ class NavidromeApiService @Inject constructor(
     /**
      * Search for songs only.
      */
-    suspend fun searchSongs(query: String, count: Int = 30): Result<List<JSONObject>> {
-        return search3(query, artistCount = 0, albumCount = 0, songCount = count).map { response ->
+    suspend fun searchSongs(
+        query: String,
+        count: Int = 30,
+        offset: Int = 0
+    ): Result<List<JSONObject>> {
+        return search3(
+            query,
+            artistCount = 0,
+            albumCount = 0,
+            songCount = count,
+            songOffset = offset
+        ).map { response ->
             val searchResult = response.optJSONObject("searchResult3")
             val songs = searchResult?.optJSONArray("song")
             (0 until (songs?.length() ?: 0)).mapNotNull { songs?.optJSONObject(it) }

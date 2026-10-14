@@ -306,6 +306,9 @@ fun HomeScreen(
                     onStreamingClick = {
                           showStreamingProviderSheet = true
                     },
+                    onSearchClick = {
+                        navController.navigateSafely(Screen.Search.route)
+                    },
                     onMenuClick = {
                     },
                     isScrolled = isScrolledPastThreshold.value
