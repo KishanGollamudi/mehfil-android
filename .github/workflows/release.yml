@@ -1,0 +1,147 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-release-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > ${{ github.workspace }}/release.keystore
+      - name: Grant execute on gradlew
+        run: chmod +x ./gradlew
+      - name: Build release APK
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+      - name: Collect APKs
+        run: |
+          mkdir -p release-artifacts
+          for f in app/build/outputs/apk/release/*.apk; do
+            base=$(basename "$f" .apk)
+            base=${base#app-}
+            base=${base%-release}
+            cp "$f" "release-artifacts/mehfil-${base}.apk"
+          done
+          ls -la release-artifacts/
+      - name: Read version
+        id: version
+        run: echo "name=$(grep -E '^\s*versionName' app/build.gradle.kts | head -1 | sed -E 's/.*\"(.*)\".*/\1/')" >> $GITHUB_OUTPUT
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Mehfil v${{ steps.version.outputs.name }}
+          body: |
+            **Mehfil v${{ steps.version.outputs.name }}** — self-hosted music player.
+
+            ## Android
+            1. Download `mehfil-arm64-v8a.apk` (modern phones) or `mehfil-armeabi-v7a.apk` (older phones).
+            2. Enable "Install from unknown sources" on your phone.
+            3. Tap the APK and install.
+
+            ## iOS
+            Not yet available as a native app. Open the Mehfil web app in Safari → Share → Add to Home Screen.
+
+            Licensed under GPL-3.0. Based on PixelPlayerOSS.
+          files: release-artifacts/*.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+      - name: Upload build reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-reports
+          path: |
+            app/build/reports/
+            build/reports/
+          retention-days: 7
+
+  ios-check:
+    name: Check for iOS project
+    runs-on: ubuntu-latest
+    outputs:
+      exists: ${{ steps.check.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect iOS project
+        id: check
+        run: |
+          if [ -d "ios" ] && { compgen -G "ios/*.xcodeproj" > /dev/null || compgen -G "ios/*.xcworkspace" > /dev/null; }; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=iOS build skipped::No ios/ folder with an Xcode project found."
+          fi
+
+  ios:
+    name: Build iOS IPA
+    needs: [android, ios-check]
+    if: needs.ios-check.outputs.exists == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: Build archive
+        run: |
+          cd ios
+          WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' -print -quit)
+          PROJECT=$(find . -maxdepth 1 -name '*.xcodeproj' -print -quit)
+          if [ -n "$WORKSPACE" ]; then
+            xcodebuild -list -workspace "$WORKSPACE"
+            xcodebuild archive \
+              -workspace "$WORKSPACE" \
+              -scheme Mehfil \
+              -archivePath "${{ github.workspace }}/build/Mehfil.xcarchive" \
+              -sdk iphoneos \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO
+          else
+            xcodebuild -list -project "$PROJECT"
+            xcodebuild archive \
+              -project "$PROJECT" \
+              -scheme Mehfil \
+              -archivePath "${{ github.workspace }}/build/Mehfil.xcarchive" \
+              -sdk iphoneos \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO
+          fi
+      - name: Package IPA
+        run: |
+          mkdir -p build/Payload
+          cp -R build/Mehfil.xcarchive/Products/Applications/*.app build/Payload/
+          cd build && zip -r mehfil.ipa Payload
+          ls -la
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/mehfil.ipa
+          fail_on_unmatched_files: false

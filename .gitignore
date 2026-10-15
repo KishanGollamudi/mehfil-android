@@ -5,6 +5,8 @@ hs_err_pid*.log
 *.apk
 *.aab
 **.jks
+release.keystore
+*.keystore
 
 .idea/
 

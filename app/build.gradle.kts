@@ -81,20 +81,18 @@ android {
         applicationId = "com.lostf1sh.pixelplayeross"
         minSdk = 30
         targetSdk = 37
-        versionCode = (project.findProperty("APP_VERSION_CODE") as? String)?.toInt() ?: 1
-        versionName = (project.findProperty("APP_VERSION_NAME") as? String) ?: "1.0.0"
+        versionCode = 1
+        versionName = "1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
-        if (hasReleaseSigningConfig) {
-            create("release") {
-                storeFile = releaseSigningStoreFile
-                storePassword = checkNotNull(keystoreProperties.getProperty("storePassword"))
-                keyAlias = checkNotNull(keystoreProperties.getProperty("keyAlias"))
-                keyPassword = checkNotNull(keystoreProperties.getProperty("keyPassword"))
-            }
+        create("release") {
+            storeFile = file(System.getenv("KEYSTORE_PATH") ?: "release.keystore")
+            storePassword = System.getenv("KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("KEY_ALIAS")
+            keyPassword = System.getenv("KEY_PASSWORD")
         }
     }
 
@@ -104,9 +102,7 @@ android {
         }
 
         release {
-            if (hasReleaseSigningConfig) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
