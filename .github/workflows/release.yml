@@ -28,7 +28,20 @@ jobs:
             ~/.gradle/wrapper
           key: ${{ runner.os }}-gradle-release-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
       - name: Decode keystore
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > ${{ github.workspace }}/release.keystore
+        run: |
+          set -e
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | tr -d ' \n\r\t' | base64 -d > ${{ github.workspace }}/release.keystore
+          KS_SIZE=$(stat -c%s ${{ github.workspace }}/release.keystore)
+          echo "Keystore decoded: ${KS_SIZE} bytes"
+          if [ "$KS_SIZE" -lt 1000 ]; then
+            echo "::error::Keystore file is too small (${KS_SIZE} bytes). The KEYSTORE_BASE64 secret is likely truncated or malformed."
+            exit 1
+          fi
+          if ! keytool -list -keystore ${{ github.workspace }}/release.keystore -storepass "${{ secrets.KEYSTORE_PASSWORD }}" > /dev/null 2>&1; then
+            echo "::error::Keystore could not be opened. Password may be wrong, or the base64 is corrupted."
+            exit 1
+          fi
+          echo "Keystore validated successfully."
       - name: Grant execute on gradlew
         run: chmod +x ./gradlew
       - name: Build release APK
