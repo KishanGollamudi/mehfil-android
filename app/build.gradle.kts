@@ -42,6 +42,10 @@ android {
     namespace = "com.lostf1sh.pixelplayeross"
     compileSdk = 37
 
+    base {
+        archivesName.set("mehfil")
+    }
+
     sourceSets {
         getByName("androidTest") {
             assets.directories.add(file("$projectDir/schemas").path)
@@ -155,14 +159,6 @@ android {
         abi.enableSplit = true
         density.enableSplit = true
         language.enableSplit = true
-    }
-}
-
-androidComponents {
-    onVariants { variant ->
-        variant.outputs.forEach { output ->
-            output.outputFileName.set("mehfil.apk")
-        }
     }
 }
 

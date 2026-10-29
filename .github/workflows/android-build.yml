@@ -38,12 +38,17 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Upload debug APK
-        if: success()
+      - name: Prepare Mehfil APK
+        run: |
+          mkdir -p build-apks
+          find app/build/outputs/apk -type f -name "*.apk" ! -name "*unaligned*" -exec cp {} build-apks/mehfil.apk \;
+          ls -lh build-apks/
+
+      - name: Upload Mehfil APK
         uses: actions/upload-artifact@v4
         with:
           name: mehfil-v1.1-apk
-          path: app/build/outputs/apk/**/mehfil.apk
+          path: build-apks/mehfil.apk
           retention-days: 30
 
       - name: Upload build reports on failure
