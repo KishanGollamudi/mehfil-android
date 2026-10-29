@@ -78,11 +78,12 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.lostf1sh.pixelplayeross"
+        applicationId = "com.mehfil.player"
         minSdk = 30
         targetSdk = 37
-        versionCode = 1
-        versionName = "1"
+        versionCode = 2
+        versionName = "1.1"
+        resValue("string", "app_name", "Mehfil")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -127,6 +128,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        resValues = true
     }
 
     testOptions {
@@ -153,6 +155,14 @@ android {
         abi.enableSplit = true
         density.enableSplit = true
         language.enableSplit = true
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            output.outputFileName.set("mehfil.apk")
+        }
     }
 }
 

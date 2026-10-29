@@ -54,12 +54,9 @@ jobs:
       - name: Collect APKs
         run: |
           mkdir -p release-artifacts
-          for f in app/build/outputs/apk/release/*.apk; do
-            base=$(basename "$f" .apk)
-            base=${base#app-}
-            base=${base%-release}
-            cp "$f" "release-artifacts/mehfil-${base}.apk"
-          done
+          apk="$(find app/build/outputs/apk/release -path '*arm64-v8a*/mehfil.apk' -print -quit)"
+          test -n "$apk"
+          cp "$apk" release-artifacts/mehfil.apk
           ls -la release-artifacts/
       - name: Read version
         id: version
@@ -72,15 +69,15 @@ jobs:
             **Mehfil v${{ steps.version.outputs.name }}** — self-hosted music player.
 
             ## Android
-            1. Download `mehfil-arm64-v8a.apk` (modern phones) or `mehfil-armeabi-v7a.apk` (older phones).
+            1. Download `mehfil.apk`.
             2. Enable "Install from unknown sources" on your phone.
             3. Tap the APK and install.
 
             ## iOS
             Not yet available as a native app. Open the Mehfil web app in Safari → Share → Add to Home Screen.
 
-            Licensed under GPL-3.0. Based on PixelPlayerOSS.
-          files: release-artifacts/*.apk
+            Licensed under GPL-3.0. Mehfil music player.
+          files: release-artifacts/mehfil.apk
           draft: false
           prerelease: false
           generate_release_notes: true

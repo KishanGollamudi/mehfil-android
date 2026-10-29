@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Vinyl / Tabla Resonator Ring -->
+    <path
+        android:strokeColor="#DC9B3C"
+        android:strokeWidth="2.5"
+        android:pathData="M54,18 A36,36 0 1,1 53.9,18" />
+    <!-- Secondary Harmonic Ring -->
+    <path
+        android:strokeColor="#885E2B"
+        android:strokeWidth="1.2"
+        android:strokeAlpha="0.6"
+        android:pathData="M54,26 A28,28 0 1,1 53.9,26" />
+    <!-- Center Sound Core -->
+    <path
+        android:fillColor="#2A1E11"
+        android:strokeColor="#D36440"
+        android:strokeWidth="2"
+        android:pathData="M54,36 A18,18 0 1,1 53.9,36" />
+    <!-- Central Flame Note -->
+    <path
+        android:fillColor="#DC9B3C"
+        android:pathData="M57,44 L57,56.5 A4.5,4.5 0 1,1 52.5,52 A4.5,4.5 0 0,1 55,52.8 L55,46.5 L63,44 Z" />
+</vector>
