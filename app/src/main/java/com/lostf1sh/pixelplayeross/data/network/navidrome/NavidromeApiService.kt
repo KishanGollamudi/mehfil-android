@@ -375,9 +375,9 @@ class NavidromeApiService @Inject constructor(
      */
     suspend fun search3(
         query: String,
-        artistCount: Int = 10,
+        artistCount: Int = 5,
         albumCount: Int = 20,
-        songCount: Int = 30,
+        songCount: Int = 50,
         songOffset: Int = 0
     ): Result<JSONObject> {
         val params = mapOf(

@@ -47,11 +47,13 @@ sealed class Screen(val route: String) {
     }
     object DJSpace : Screen("dj_space")
     object AlbumDetail : Screen("album_detail/{albumId}") {
-        fun createRoute(albumId: Long) = "album_detail/$albumId"
+        fun createRoute(albumId: String) = "album_detail/$albumId"
+        fun createRoute(albumId: Long) = createRoute(albumId.toString())
     }
 
     object ArtistDetail : Screen("artist_detail/{artistId}") {
-        fun createRoute(artistId: Long) = "artist_detail/$artistId"
+        fun createRoute(artistId: String) = "artist_detail/$artistId"
+        fun createRoute(artistId: Long) = createRoute(artistId.toString())
     }
 
     object EditTransition : Screen("edit_transition?playlistId={playlistId}") {

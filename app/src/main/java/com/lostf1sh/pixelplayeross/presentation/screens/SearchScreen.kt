@@ -13,6 +13,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import com.lostf1sh.pixelplayeross.ui.theme.ShapeCache
@@ -38,6 +40,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -52,6 +55,9 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -162,9 +168,10 @@ fun SearchScreen(
     var searchQuery by rememberSaveable { mutableStateOf(playerViewModel.searchQuery) }
     var searchSource by rememberSaveable { mutableStateOf(SearchSource.SERVER) }
     val serverSearchViewModel: ServerSearchViewModel = hiltViewModel()
-    var serverResults by remember { mutableStateOf<List<Song>>(emptyList()) }
-    var isServerSearchLoading by remember { mutableStateOf(false) }
-    var serverSearchError by remember { mutableStateOf<String?>(null) }
+    val serverSearchState by serverSearchViewModel.uiState.collectAsStateWithLifecycle()
+    val serverResults = serverSearchState.songs
+    val isServerSearchLoading = serverSearchState.isLoading
+    val serverSearchError = serverSearchState.error
     val statusBarTopInset = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
     val systemNavBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val navBarCompactMode by playerViewModel.navBarCompactMode.collectAsStateWithLifecycle()
@@ -224,23 +231,7 @@ fun SearchScreen(
     }
     LaunchedEffect(searchQuery, searchSource) {
         if (searchSource != SearchSource.SERVER) return@LaunchedEffect
-        serverResults = emptyList()
-        serverSearchError = null
-        if (searchQuery.isBlank()) {
-            isServerSearchLoading = false
-            return@LaunchedEffect
-        }
-
-        delay(400)
-        isServerSearchLoading = true
-        val result = serverSearchViewModel.searchSongs(searchQuery.trim())
-        result.onSuccess { songs ->
-            serverResults = songs
-        }.onFailure { error ->
-            if (error is kotlinx.coroutines.CancellationException) throw error
-            serverSearchError = error.message ?: "Search failed"
-        }
-        isServerSearchLoading = false
+        serverSearchViewModel.updateQuery(searchQuery)
     }
     val searchResults = searchUiState.searchResults
     val handleSongMoreOptionsClick: (Song) -> Unit = { song ->
@@ -248,6 +239,7 @@ fun SearchScreen(
         showSongInfoBottomSheet = true
     }
 
+    val searchPullRefreshState = rememberPullToRefreshState()
     val searchbarCornerRadius = 28.dp
 
     val dm = LocalPixelPlayerDarkTheme.current
@@ -383,11 +375,18 @@ fun SearchScreen(
             }
 
             if (searchSource == SearchSource.SERVER) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center
+                PullToRefreshBox(
+                    isRefreshing = isServerSearchLoading,
+                    onRefresh = serverSearchViewModel::refresh,
+                    state = searchPullRefreshState,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    indicator = {
+                        PullToRefreshDefaults.LoadingIndicator(
+                            state = searchPullRefreshState,
+                            isRefreshing = isServerSearchLoading,
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        )
+                    }
                 ) {
                     when {
                         searchQuery.isBlank() -> Text("Type to search")
@@ -397,25 +396,79 @@ fun SearchScreen(
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(horizontal = 24.dp)
                         )
-                        serverResults.isEmpty() -> Text("No tracks found")
+                        serverSearchState.artists.isEmpty() &&
+                            serverSearchState.albums.isEmpty() &&
+                            serverResults.isEmpty() -> Text("No results found")
                         else -> LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(
                                 bottom = systemNavBarInset + bottomBarHeightDp + MiniPlayerHeight + 24.dp
                             )
                         ) {
-                            items(serverResults, key = { it.id }) { song ->
-                                ExpressiveSongListItem(
-                                    song = song,
-                                    isPlaying = stablePlayerState.currentSong?.id == song.id && stablePlayerState.isPlaying,
-                                    onClick = {
-                                        playerViewModel.showAndPlaySong(
-                                            song,
-                                            serverResults,
-                                            "Server Search"
+                            serverSearchState.artists.firstOrNull()?.let { artist ->
+                                item(key = "artist_${artist.id}") {
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                                            .clickable {
+                                                navController.navigateSafely(Screen.ArtistDetail.createRoute(artist.id))
+                                            },
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceVariant
                                         )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(16.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            SmartImage(
+                                                model = serverSearchViewModel.coverArtUrl(artist.coverArt, 240),
+                                                contentDescription = artist.name,
+                                                modifier = Modifier.size(96.dp).clip(CircleShape),
+                                                targetSize = SmartImageListTargetSize
+                                            )
+                                            Spacer(Modifier.width(16.dp))
+                                            Column {
+                                                Text("Top Result", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(artist.name, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text("Artist • ${artist.albumCount} albums", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
                                     }
-                                )
+                                }
+                            }
+                            if (serverSearchState.albums.isNotEmpty()) {
+                                item(key = "albums_header") { Text("Albums", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp)) }
+                                item(key = "albums_row") {
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(horizontal = 16.dp)) {
+                                        items(serverSearchState.albums, key = { it.id }) { album ->
+                                            ElevatedCard(
+                                                modifier = Modifier.width(120.dp).clickable { navController.navigateSafely(Screen.AlbumDetail.createRoute(album.id)) },
+                                                elevation = CardDefaults.elevatedCardElevation()
+                                            ) {
+                                                SmartImage(
+                                                    model = serverSearchViewModel.coverArtUrl(album.coverArt, 240),
+                                                    contentDescription = album.name,
+                                                    modifier = Modifier.size(120.dp),
+                                                    targetSize = SmartImageListTargetSize
+                                                )
+                                                Text(album.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                                                Text(album.artist, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if (serverResults.isNotEmpty()) {
+                                item(key = "songs_header") { Text("Songs", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp)) }
+                                items(serverResults, key = { it.id }) { song ->
+                                    ExpressiveSongListItem(
+                                        song = song,
+                                        isPlaying = stablePlayerState.currentSong?.id == song.id && stablePlayerState.isPlaying,
+                                        onClick = { playerViewModel.showAndPlaySong(song, serverResults, "Server Search") }
+                                    )
+                                }
                             }
                         }
                     }

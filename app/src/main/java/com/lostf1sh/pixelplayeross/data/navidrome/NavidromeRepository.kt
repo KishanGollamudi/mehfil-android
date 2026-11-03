@@ -24,6 +24,7 @@ import com.lostf1sh.pixelplayeross.data.navidrome.model.NavidromeMusicFolder
 import com.lostf1sh.pixelplayeross.data.navidrome.model.NavidromeSong
 import com.lostf1sh.pixelplayeross.data.network.navidrome.NavidromeApiService
 import com.lostf1sh.pixelplayeross.data.network.navidrome.NavidromeResponseParser
+import com.lostf1sh.pixelplayeross.data.network.navidrome.SearchResults
 import com.lostf1sh.pixelplayeross.data.preferences.PlaylistPreferencesRepository
 import com.lostf1sh.pixelplayeross.data.preferences.UserPreferencesRepository
 import com.lostf1sh.pixelplayeross.data.stream.BulkSyncResult
@@ -710,6 +711,12 @@ class NavidromeRepository @Inject constructor(
                 Result.failure(e)
             }
         }
+    }
+
+    suspend fun searchAll(query: String): Result<SearchResults> {
+        if (!isLoggedIn) return Result.failure(Exception("Not logged in"))
+        return api.search3(query, artistCount = 5, albumCount = 20, songCount = 50)
+            .map { NavidromeResponseParser.parseSearchResults(it) }
     }
 
     /**
