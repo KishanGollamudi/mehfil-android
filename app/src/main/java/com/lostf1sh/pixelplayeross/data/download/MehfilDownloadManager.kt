@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Environment
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.NoOpCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
@@ -15,11 +16,10 @@ class MehfilDownloadManager(context: Context) {
     private val applicationContext = context.applicationContext
     private val mediaDirectory = applicationContext.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
         ?: applicationContext.filesDir
-    private val cacheDirectory = File(mediaDirectory, "media-cache")
-    private val actionFile = File(mediaDirectory, "downloads.actions")
+    private val cacheDirectory = File(mediaDirectory, "downloads")
     private val databaseProvider = StandaloneDatabaseProvider(applicationContext)
 
-    val cache: SimpleCache = SimpleCache(
+    val cache: Cache = SimpleCache(
         cacheDirectory,
         NoOpCacheEvictor(),
         databaseProvider
@@ -36,7 +36,7 @@ class MehfilDownloadManager(context: Context) {
     val manager: DownloadManager = DownloadManager(
         applicationContext,
         databaseProvider,
-        actionFile,
+        cache,
         upstreamFactory,
         Executors.newFixedThreadPool(3)
     )
