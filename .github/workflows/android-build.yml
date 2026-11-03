@@ -5,6 +5,7 @@ on:
     branches:
       - mehfil-features
       - main
+      - 'feature/**'
   workflow_dispatch:
 
 jobs:
