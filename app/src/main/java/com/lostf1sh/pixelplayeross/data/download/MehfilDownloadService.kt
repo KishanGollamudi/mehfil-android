@@ -23,6 +23,8 @@ class MehfilDownloadService : DownloadService(
         return MehfilDownloadProvider.get(this).manager
     }
 
+    override fun getScheduler(): androidx.media3.exoplayer.scheduler.Scheduler? = null
+
     override fun getForegroundNotification(
         downloads: List<androidx.media3.exoplayer.offline.Download>,
         notMetRequirements: Int
@@ -61,7 +63,7 @@ object MehfilDownloadProvider {
 
     fun get(context: Context): MehfilDownloadManager {
         return synchronized(this) {
-            manager ?: MehfilDownloadManager(context.applicationContext, okhttp3.OkHttpClient()).also {
+            manager ?: MehfilDownloadManager(context.applicationContext).also {
                 manager = it
             }
         }
