@@ -46,6 +46,8 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import timber.log.Timber
+import java.security.MessageDigest
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -74,6 +76,10 @@ class NavidromeRepository @Inject constructor(
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_USERNAME = "username"
         private const val KEY_PASSWORD = "password"
+        private const val KEY_AUTH_SALT = "auth_salt"
+        private const val KEY_AUTH_TOKEN = "auth_token"
+        private const val KEY_CLIENT_ID = "client_id"
+        private const val KEY_API_VERSION = "api_version"
         private const val KEY_AUTH_METHOD = "auth_method"
         private const val KEY_LAST_FULL_SYNC = "last_full_sync"
 
@@ -109,8 +115,8 @@ class NavidromeRepository @Inject constructor(
         try {
             createEncryptedPrefs()
         } catch (e2: Exception) {
-            Timber.e(e2, "$TAG: Encrypted prefs unavailable, falling back to plain")
-            context.getSharedPreferences("${PREFS_NAME}_plain", Context.MODE_PRIVATE)
+            Timber.e(e2, "$TAG: Encrypted credential storage unavailable")
+            throw IllegalStateException("Secure credential storage is unavailable", e2)
         }
     }
 
@@ -133,9 +139,13 @@ class NavidromeRepository @Inject constructor(
         val serverUrl = prefs.getString(KEY_SERVER_URL, null)
         val username = prefs.getString(KEY_USERNAME, null)
         val password = prefs.getString(KEY_PASSWORD, null)
+        val authSalt = prefs.getString(KEY_AUTH_SALT, null)
+        val authToken = prefs.getString(KEY_AUTH_TOKEN, null)
 
-        if (!serverUrl.isNullOrBlank() && !username.isNullOrBlank() && !password.isNullOrBlank()) {
-            val credentials = NavidromeCredentials(serverUrl, username, password)
+        if (!serverUrl.isNullOrBlank() && !username.isNullOrBlank() && !password.isNullOrBlank() &&
+            !authSalt.isNullOrBlank() && !authToken.isNullOrBlank()
+        ) {
+            val credentials = NavidromeCredentials(serverUrl, username, password, "mehfil-android", authSalt, authToken)
             val validationError = credentials.connectionValidationError()
             if (validationError != null) {
                 Timber.w("$TAG: Ignoring insecure or invalid saved Navidrome server URL: $validationError")
@@ -206,10 +216,16 @@ class NavidromeRepository @Inject constructor(
                     )
                 }
 
+                val authSalt = UUID.randomUUID().toString().take(6)
+                val authToken = md5Hex(password + authSalt)
                 prefs.edit {
                     putString(KEY_SERVER_URL, credentials.normalizedServerUrl)
                         .putString(KEY_USERNAME, username)
                         .putString(KEY_PASSWORD, password)
+                        .putString(KEY_AUTH_SALT, authSalt)
+                        .putString(KEY_AUTH_TOKEN, authToken)
+                        .putString(KEY_CLIENT_ID, "mehfil-android")
+                        .putString(KEY_API_VERSION, NavidromeCredentials.API_VERSION)
                         .putString(KEY_AUTH_METHOD, api.activeAuthMethod.name)
                 }
 
@@ -245,6 +261,10 @@ class NavidromeRepository @Inject constructor(
         userPreferencesRepository.clearNavidromeSelectedMusicFolderIds()
         _isLoggedInFlow.value = false
     }
+
+    private fun md5Hex(value: String): String =
+        MessageDigest.getInstance("MD5").digest(value.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
 
     suspend fun getMusicFolders(): Result<List<NavidromeMusicFolder>> {
         if (!isLoggedIn) {

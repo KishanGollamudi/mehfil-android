@@ -110,7 +110,8 @@ class NavidromeLoginActivity : ComponentActivity() {
 @Composable
 fun NavidromeLoginScreen(
     viewModel: NavidromeLoginViewModel = hiltViewModel(),
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onAuthenticated: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val loginState by viewModel.state.collectAsStateWithLifecycle()
@@ -155,11 +156,11 @@ fun NavidromeLoginScreen(
                     context.getString(R.string.toast_welcome_user, state.username),
                     Toast.LENGTH_SHORT
                 ).show()
+                onAuthenticated()
                 onClose()
             }
             is NavidromeLoginState.Error -> {
                 snackbarHostState.showSnackbar(state.message)
-                viewModel.clearError()
             }
             else -> Unit
         }
@@ -452,6 +453,22 @@ fun NavidromeLoginScreen(
                 }
             }
 
+            (loginState as? NavidromeLoginState.Error)?.let { error ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Text(
+                        text = error.message,
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
@@ -463,9 +480,10 @@ fun NavidromeLoginScreen(
                     .height(52.dp)
             ) {
                 if (isLoading) {
-                    LoadingIndicator(
+                    androidx.compose.material3.CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(R.string.auth_connecting), fontFamily = RoundedSans)

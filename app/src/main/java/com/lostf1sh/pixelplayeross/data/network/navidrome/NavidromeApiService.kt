@@ -112,7 +112,12 @@ class NavidromeApiService @Inject constructor(
         val urlBuilder = baseUrl.toHttpUrl().newBuilder()
             .addQueryParameter("u", cred.username)
 
-        subsonicAuthParams(cred.password, method).forEach { (key, value) ->
+        subsonicAuthParams(
+            password = cred.password,
+            method = method,
+            salt = cred.authSalt.orEmpty(),
+            token = cred.authToken
+        ).forEach { (key, value) ->
             urlBuilder.addQueryParameter(key, value)
         }
 
@@ -206,18 +211,7 @@ class NavidromeApiService @Inject constructor(
      * this client to password auth for the rest of the session and retries once.
      */
     private suspend fun requestAndParse(endpoint: String, params: Map<String, String> = emptyMap()): Result<JSONObject> {
-        val method = authMethod
-        val result = requestParsed(endpoint, params, method)
-
-        val error = result.exceptionOrNull()
-        if (error is SubsonicApiException && shouldFallBackToPasswordAuth(error, method)) {
-            Timber.w("$TAG: Server rejected token auth (${error.message}), retrying with password auth")
-            authMethod = NavidromeAuthMethod.PASSWORD
-            onAuthMethodChanged?.invoke(NavidromeAuthMethod.PASSWORD)
-            return requestParsed(endpoint, params, NavidromeAuthMethod.PASSWORD)
-        }
-
-        return result
+        return requestParsed(endpoint, params, authMethod)
     }
 
     private suspend fun requestParsed(
@@ -453,7 +447,12 @@ class NavidromeApiService @Inject constructor(
         val urlBuilder = "${cred.normalizedServerUrl}/rest/stream.view".toHttpUrl().newBuilder()
             .addQueryParameter("u", cred.username)
 
-        subsonicAuthParams(cred.password, authMethod).forEach { (key, value) ->
+        subsonicAuthParams(
+            password = cred.password,
+            method = authMethod,
+            salt = cred.authSalt.orEmpty(),
+            token = cred.authToken
+        ).forEach { (key, value) ->
             urlBuilder.addQueryParameter(key, value)
         }
 
@@ -485,7 +484,12 @@ class NavidromeApiService @Inject constructor(
             .toHttpUrl().newBuilder()
             .addQueryParameter("u", cred.username)
 
-        subsonicAuthParams(cred.password, authMethod).forEach { (key, value) ->
+        subsonicAuthParams(
+            password = cred.password,
+            method = authMethod,
+            salt = cred.authSalt.orEmpty(),
+            token = cred.authToken
+        ).forEach { (key, value) ->
             urlBuilder.addQueryParameter(key, value)
         }
 
@@ -609,8 +613,6 @@ class SubsonicApiException(
     val serverMessage: String
 ) : Exception("API Error $code: $serverMessage")
 
-/** Subsonic error 41: the server cannot verify salted tokens and wants `p` instead. */
-private const val SUBSONIC_ERROR_TOKEN_AUTH_UNSUPPORTED = 41
 
 /**
  * Whether a failed call should be retried with password auth.
@@ -618,36 +620,24 @@ private const val SUBSONIC_ERROR_TOKEN_AUTH_UNSUPPORTED = 41
  * Only error 41 qualifies: wrong credentials (40) would fail the same way again, and
  * a server that already answered a token request has nothing to gain from the switch.
  */
-internal fun shouldFallBackToPasswordAuth(
-    error: SubsonicApiException,
-    currentMethod: NavidromeAuthMethod
-): Boolean = currentMethod == NavidromeAuthMethod.TOKEN &&
-    error.code == SUBSONIC_ERROR_TOKEN_AUTH_UNSUPPORTED
-
-/**
- * Build the credential query parameters for [method].
- *
- * TOKEN sends `t=md5(password + salt)` with the salt; PASSWORD sends the hex-encoded
- * `p=enc:...` form, which every Subsonic server accepts and is the only form servers
- * like Nextcloud Music can verify.
- */
+/** Build salted token credentials for a Subsonic request. */
 internal fun subsonicAuthParams(
     password: String,
     method: NavidromeAuthMethod,
-    salt: String = randomSubsonicSalt()
+    salt: String = randomSubsonicSalt(),
+    token: String? = null
 ): Map<String, String> = when (method) {
-    NavidromeAuthMethod.TOKEN -> mapOf(
-        "t" to md5Hex(password + salt),
-        "s" to salt
-    )
-    NavidromeAuthMethod.PASSWORD -> mapOf(
-        "p" to "enc:" + password.toByteArray(Charsets.UTF_8).toHexString()
-    )
+    NavidromeAuthMethod.TOKEN -> {
+        val effectiveSalt = salt.ifBlank { randomSubsonicSalt() }
+        mapOf(
+            "t" to (token ?: md5Hex(password + effectiveSalt)),
+            "s" to effectiveSalt
+        )
+    }
 }
 
 private fun randomSubsonicSalt(): String = UUID.randomUUID().toString().take(6)
 
 private fun md5Hex(input: String): String =
-    MessageDigest.getInstance("MD5").digest(input.toByteArray(Charsets.UTF_8)).toHexString()
-
-private fun ByteArray.toHexString(): String = joinToString("") { "%02x".format(it) }
+    MessageDigest.getInstance("MD5").digest(input.toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it.toInt() and 0xff) }

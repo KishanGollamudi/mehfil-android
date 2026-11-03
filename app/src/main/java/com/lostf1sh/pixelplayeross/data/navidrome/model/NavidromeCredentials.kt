@@ -17,13 +17,15 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
  * @property serverUrl The base URL of the Navidrome server (e.g., "https://music.example.com")
  * @property username The username for authentication
  * @property password The password (stored securely, used to generate tokens)
- * @property clientId The client identifier sent to the server (default: "PixelPlayerOSS")
+ * @property clientId The client identifier sent to the server (default: "mehfil-android")
  */
 data class NavidromeCredentials(
     val serverUrl: String,
     val username: String,
     val password: String,
-    val clientId: String = "PixelPlayerOSS"
+    val clientId: String = "mehfil-android",
+    val authSalt: String? = null,
+    val authToken: String? = null
 ) {
     companion object {
         /**
@@ -38,7 +40,7 @@ data class NavidromeCredentials(
             serverUrl = "",
             username = "",
             password = "",
-            clientId = "PixelPlayerOSS"
+            clientId = "mehfil-android"
         )
     }
 
@@ -52,7 +54,15 @@ data class NavidromeCredentials(
      * Returns the parsed and normalized server URL, or null if it is invalid.
      */
     val normalizedHttpUrlOrNull: HttpUrl?
-        get() = serverUrl.trim().trimEnd('/').toHttpUrlOrNull()
+        get() {
+            val trimmed = serverUrl.trim().trimEnd('/')
+            val withScheme = if (trimmed.contains(Regex("^[a-zA-Z][a-zA-Z0-9+.-]*://"))) {
+                trimmed
+            } else {
+                "https://$trimmed"
+            }
+            return withScheme.toHttpUrlOrNull()
+        }
 
     /**
      * Returns the normalized server URL (without trailing slash).

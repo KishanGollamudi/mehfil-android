@@ -131,6 +131,8 @@ import com.lostf1sh.pixelplayeross.presentation.components.sanitizeNavigationBar
 import com.lostf1sh.pixelplayeross.presentation.navigation.AppNavigation
 import com.lostf1sh.pixelplayeross.presentation.navigation.Screen
 import com.lostf1sh.pixelplayeross.presentation.screens.SetupScreen
+import com.lostf1sh.pixelplayeross.presentation.navidrome.auth.NavidromeLoginScreen
+import com.lostf1sh.pixelplayeross.data.navidrome.NavidromeRepository
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.MainViewModel
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.PlayerViewModel
 import com.lostf1sh.pixelplayeross.ui.theme.PixelPlayerTheme
@@ -184,6 +186,8 @@ class MainActivity : ComponentActivity() {
     lateinit var themePreferencesRepository: ThemePreferencesRepository
     @Inject
     lateinit var syncManager: SyncManager
+    @Inject
+    lateinit var navidromeRepository: NavidromeRepository
     private val _pendingPlaylistNavigation = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     private val _pendingShuffleAll = kotlinx.coroutines.flow.MutableStateFlow(false)
     private val _pendingUpdatesNavigation = kotlinx.coroutines.flow.MutableStateFlow(false)
@@ -378,7 +382,16 @@ class MainActivity : ComponentActivity() {
                                 SetupScreen(onSetupComplete = {
                                 })
                             } else {
-                                MainAppContent(playerViewModel, mainViewModel)
+                                val isNavidromeAuthenticated by navidromeRepository.isLoggedInFlow
+                                    .collectAsStateWithLifecycle()
+                                if (isNavidromeAuthenticated) {
+                                    MainAppContent(playerViewModel, mainViewModel)
+                                } else {
+                                    NavidromeLoginScreen(
+                                        onClose = {},
+                                        onAuthenticated = { }
+                                    )
+                                }
                             }
                         }
                     }
