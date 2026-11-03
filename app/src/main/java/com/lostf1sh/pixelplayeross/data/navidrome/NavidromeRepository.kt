@@ -47,7 +47,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import timber.log.Timber
 import java.security.MessageDigest
-import java.util.UUID
+import java.security.SecureRandom
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -75,7 +75,6 @@ class NavidromeRepository @Inject constructor(
         private const val PREFS_NAME = "navidrome_prefs"
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_USERNAME = "username"
-        private const val KEY_PASSWORD = "password"
         private const val KEY_AUTH_SALT = "auth_salt"
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_CLIENT_ID = "client_id"
@@ -138,14 +137,13 @@ class NavidromeRepository @Inject constructor(
     private fun initFromSavedCredentials() {
         val serverUrl = prefs.getString(KEY_SERVER_URL, null)
         val username = prefs.getString(KEY_USERNAME, null)
-        val password = prefs.getString(KEY_PASSWORD, null)
         val authSalt = prefs.getString(KEY_AUTH_SALT, null)
         val authToken = prefs.getString(KEY_AUTH_TOKEN, null)
 
-        if (!serverUrl.isNullOrBlank() && !username.isNullOrBlank() && !password.isNullOrBlank() &&
+        if (!serverUrl.isNullOrBlank() && !username.isNullOrBlank() &&
             !authSalt.isNullOrBlank() && !authToken.isNullOrBlank()
         ) {
-            val credentials = NavidromeCredentials(serverUrl, username, password, "mehfil-android", authSalt, authToken)
+            val credentials = NavidromeCredentials(NavidromeCredentials.SERVER_URL, username, "", "mehfil-android", authSalt, authToken)
             val validationError = credentials.connectionValidationError()
             if (validationError != null) {
                 Timber.w("$TAG: Ignoring insecure or invalid saved Navidrome server URL: $validationError")
@@ -198,9 +196,9 @@ class NavidromeRepository @Inject constructor(
     suspend fun login(serverUrl: String, username: String, password: String): Result<String> {
         return withContext(Dispatchers.IO) {
             try {
-                Timber.d("$TAG: Attempting login to $serverUrl as $username")
+                Timber.d("$TAG: Attempting login to ${NavidromeCredentials.SERVER_URL} as $username")
 
-                val credentials = NavidromeCredentials(serverUrl, username, password)
+                val credentials = NavidromeCredentials(NavidromeCredentials.SERVER_URL, username, password)
                 val validationError = credentials.connectionValidationError()
                 if (validationError != null) {
                     api.clearCredentials()
@@ -216,12 +214,11 @@ class NavidromeRepository @Inject constructor(
                     )
                 }
 
-                val authSalt = UUID.randomUUID().toString().take(6)
+                val authSalt = SecureRandom().generateSeed(16).joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
                 val authToken = md5Hex(password + authSalt)
                 prefs.edit {
-                    putString(KEY_SERVER_URL, credentials.normalizedServerUrl)
+                    putString(KEY_SERVER_URL, NavidromeCredentials.SERVER_URL)
                         .putString(KEY_USERNAME, username)
-                        .putString(KEY_PASSWORD, password)
                         .putString(KEY_AUTH_SALT, authSalt)
                         .putString(KEY_AUTH_TOKEN, authToken)
                         .putString(KEY_CLIENT_ID, "mehfil-android")

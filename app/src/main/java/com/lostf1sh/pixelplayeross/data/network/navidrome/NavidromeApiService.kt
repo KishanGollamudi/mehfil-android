@@ -2,6 +2,7 @@ package com.lostf1sh.pixelplayeross.data.network.navidrome
 
 import com.lostf1sh.pixelplayeross.data.navidrome.model.NavidromeAuthMethod
 import com.lostf1sh.pixelplayeross.data.navidrome.model.NavidromeCredentials
+import com.lostf1sh.pixelplayeross.data.navidrome.model.NavidromeCredentials
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -10,7 +11,7 @@ import okhttp3.Request
 import org.json.JSONObject
 import timber.log.Timber
 import java.security.MessageDigest
-import java.util.UUID
+import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -107,7 +108,7 @@ class NavidromeApiService @Inject constructor(
     ): String {
         val cred = credentials ?: throw IllegalStateException("No credentials configured")
 
-        val baseUrl = "${cred.normalizedServerUrl}/rest/$endpoint.view"
+        val baseUrl = "${NavidromeCredentials.SERVER_URL}/rest/$endpoint.view"
 
         val urlBuilder = baseUrl.toHttpUrl().newBuilder()
             .addQueryParameter("u", cred.username)
@@ -444,7 +445,7 @@ class NavidromeApiService @Inject constructor(
     fun getStreamUrl(songId: String, maxBitRate: Int = 0, format: String? = null): String {
         val cred = credentials ?: throw IllegalStateException("No credentials configured")
 
-        val urlBuilder = "${cred.normalizedServerUrl}/rest/stream.view".toHttpUrl().newBuilder()
+        val urlBuilder = "${NavidromeCredentials.SERVER_URL}/rest/stream.view".toHttpUrl().newBuilder()
             .addQueryParameter("u", cred.username)
 
         subsonicAuthParams(
@@ -480,7 +481,7 @@ class NavidromeApiService @Inject constructor(
     fun getCoverArtUrl(coverArtId: String, size: Int = 500): String {
         val cred = credentials ?: throw IllegalStateException("No credentials configured")
 
-        val urlBuilder = "${cred.normalizedServerUrl}/rest/getCoverArt.view"
+        val urlBuilder = "${NavidromeCredentials.SERVER_URL}/rest/getCoverArt.view"
             .toHttpUrl().newBuilder()
             .addQueryParameter("u", cred.username)
 
@@ -636,7 +637,8 @@ internal fun subsonicAuthParams(
     }
 }
 
-private fun randomSubsonicSalt(): String = UUID.randomUUID().toString().take(6)
+private fun randomSubsonicSalt(): String =
+    SecureRandom().generateSeed(16).joinToString("") { "%02x".format(it.toInt() and 0xff) }
 
 private fun md5Hex(input: String): String =
     MessageDigest.getInstance("MD5").digest(input.toByteArray(Charsets.UTF_8))

@@ -256,6 +256,10 @@
             android:exported="false" />
 
         <service
+            android:name=".data.download.MehfilDownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        <service
             android:name=".data.update.UpdateDownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />

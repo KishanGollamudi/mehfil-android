@@ -12,7 +12,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,7 +28,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CloudQueue
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Visibility
@@ -40,7 +38,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -118,7 +115,6 @@ fun NavidromeLoginScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
 
-    var serverUrl by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -186,7 +182,7 @@ fun NavidromeLoginScreen(
     val inputShape = AbsoluteSmoothCornerShape(18.dp, 60)
     val connect = {
         focusManager.clearFocus()
-        val credentials = NavidromeCredentials(serverUrl, username, password)
+        val credentials = NavidromeCredentials(NavidromeCredentials.SERVER_URL, username, password)
         val permissionMissing = Build.VERSION.SDK_INT >= 37 &&
             credentials.requiresLocalNetworkAccess &&
             ContextCompat.checkSelfPermission(
@@ -195,10 +191,10 @@ fun NavidromeLoginScreen(
             ) != PackageManager.PERMISSION_GRANTED
 
         if (permissionMissing) {
-            pendingLocalNetworkLogin = Triple(serverUrl, username, password)
+            pendingLocalNetworkLogin = Triple(NavidromeCredentials.SERVER_URL, username, password)
             localNetworkPermissionLauncher.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
         } else {
-            viewModel.login(serverUrl, username, password)
+            viewModel.login(NavidromeCredentials.SERVER_URL, username, password)
         }
     }
 
@@ -353,26 +349,6 @@ fun NavidromeLoginScreen(
                     Spacer(modifier = Modifier.height(18.dp))
 
                     ExpressiveLoginField(
-                        value = serverUrl,
-                        onValueChange = { serverUrl = it },
-                        label = stringResource(R.string.auth_server_url),
-                        placeholder = stringResource(R.string.auth_navidrome_server_placeholder),
-                        supportingText = stringResource(R.string.auth_navidrome_server_url_hint),
-                        leadingIcon = Icons.Rounded.CloudQueue,
-                        enabled = !isLoading,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Uri,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                        ),
-                        shape = inputShape
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    ExpressiveLoginField(
                         value = username,
                         onValueChange = { username = it },
                         label = stringResource(R.string.auth_username),
@@ -411,7 +387,7 @@ fun NavidromeLoginScreen(
                         ),
                         keyboardActions = KeyboardActions(
                             onDone = {
-                                if (serverUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank()) {
+                                if (username.isNotBlank() && password.isNotBlank()) {
                                     connect()
                                 }
                             }
@@ -431,25 +407,6 @@ fun NavidromeLoginScreen(
                         },
                         shape = inputShape
                     )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    FilledTonalButton(
-                        onClick = {
-                            if (serverUrl.isBlank()) {
-                                serverUrl = "http://"
-                            }
-                        },
-                        enabled = !isLoading && serverUrl.isBlank(),
-                        shape = inputShape,
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.auth_prefill_http),
-                            fontFamily = RoundedSans,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
                 }
             }
 
@@ -473,7 +430,7 @@ fun NavidromeLoginScreen(
 
             Button(
                 onClick = connect,
-                enabled = !isLoading && serverUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank(),
+                enabled = !isLoading && username.isNotBlank() && password.isNotBlank(),
                 shape = AbsoluteSmoothCornerShape(18.dp, 60),
                 modifier = Modifier
                     .fillMaxWidth()

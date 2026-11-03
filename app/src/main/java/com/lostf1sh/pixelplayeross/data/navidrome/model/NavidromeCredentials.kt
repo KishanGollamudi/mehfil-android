@@ -32,6 +32,7 @@ data class NavidromeCredentials(
          * The Subsonic API version supported by this implementation.
          */
         const val API_VERSION = "1.16.1"
+        const val SERVER_URL = "https://mehfil-fm.onrender.com"
 
         /**
          * Creates an empty credentials object.
@@ -48,7 +49,8 @@ data class NavidromeCredentials(
      * Returns true if the credentials have all required fields populated.
      */
     val isValid: Boolean
-        get() = serverUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank()
+        get() = serverUrl.isNotBlank() && username.isNotBlank() &&
+            (password.isNotBlank() || (!authSalt.isNullOrBlank() && !authToken.isNullOrBlank()))
 
     /**
      * Returns the parsed and normalized server URL, or null if it is invalid.
