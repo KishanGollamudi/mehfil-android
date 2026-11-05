@@ -461,12 +461,10 @@ class NavidromeApiService @Inject constructor(
             .addQueryParameter("c", cred.clientId.ifBlank { DEFAULT_CLIENT_ID })
             .addQueryParameter("id", songId)
 
-        if (maxBitRate > 0) {
-            urlBuilder.addQueryParameter("maxBitRate", maxBitRate.toString())
-        }
-        if (format != null) {
-            urlBuilder.addQueryParameter("format", format)
-        }
+        // Mehfil always requests the server's original stream. Supplying 0 explicitly
+        // prevents Subsonic-compatible servers from choosing a lossy 128/320 kbps rendition.
+        urlBuilder.addQueryParameter("maxBitRate", maxBitRate.coerceAtLeast(0).toString())
+        urlBuilder.addQueryParameter("format", format ?: "raw")
 
         return urlBuilder.build().toString()
     }
@@ -525,8 +523,25 @@ class NavidromeApiService @Inject constructor(
                 ?.optJSONObject(0)?.optJSONArray("line")
 
             if (lyrics != null && lyrics.length() > 0) {
-                (0 until lyrics.length()).mapNotNull { lyrics.optJSONObject(it)?.optString("value") }
-                    .joinToString("\n")
+                (0 until lyrics.length()).mapNotNull { item ->
+                    val line = lyrics.optJSONObject(item) ?: return@mapNotNull null
+                    val value = line.optString("value")
+                    if (value.isBlank()) return@mapNotNull null
+                    val startTime = when {
+                        line.has("start") -> line.optLong("start")
+                        line.has("startTime") -> line.optLong("startTime")
+                        else -> null
+                    }
+                    if (startTime != null) {
+                        val totalSeconds = startTime / 1000
+                        val minutes = totalSeconds / 60
+                        val seconds = totalSeconds % 60
+                        val hundredths = (startTime % 1000) / 10
+                        String.format(java.util.Locale.US, "[%02d:%02d.%02d] %s", minutes, seconds, hundredths, value)
+                    } else {
+                        value
+                    }
+                }.joinToString("\n")
             } else {
                 ""
             }

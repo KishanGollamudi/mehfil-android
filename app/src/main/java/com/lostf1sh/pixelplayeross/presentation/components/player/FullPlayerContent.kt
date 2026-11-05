@@ -75,6 +75,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
@@ -120,6 +121,7 @@ import com.lostf1sh.pixelplayeross.data.preferences.FullPlayerLoadingTweaks
 import com.lostf1sh.pixelplayeross.presentation.components.AlbumCarouselSection
 import com.lostf1sh.pixelplayeross.presentation.components.AutoScrollingTextOnDemand
 import com.lostf1sh.pixelplayeross.presentation.components.LocalMaterialTheme
+import com.lostf1sh.pixelplayeross.presentation.components.rememberArtworkPalette
 import com.lostf1sh.pixelplayeross.presentation.components.LyricsSheet
 import com.lostf1sh.pixelplayeross.presentation.components.scoped.rememberSmoothProgress
 import com.lostf1sh.pixelplayeross.presentation.components.subcomps.FetchLyricsDialog
@@ -301,8 +303,13 @@ fun FullPlayerContent(
 
     val totalDurationValue = totalDurationProvider()
 
+    val artworkPalette = rememberArtworkPalette(song.albumArtUriString)
+    val paletteAccent = artworkPalette.vibrant
+        ?: artworkPalette.dominant
+        ?: artworkPalette.muted
+        ?: LocalMaterialTheme.current.primary
     val playerOnBaseColor = LocalMaterialTheme.current.onPrimaryContainer
-    val playerAccentColor = LocalMaterialTheme.current.primary
+    val playerAccentColor = paletteAccent
     val playerOnAccentColor = LocalMaterialTheme.current.onPrimary
     val transportPlayPauseColors = expressivePlayPauseButtonColors(LocalMaterialTheme.current)
     val transportSkipColors = expressiveSkipButtonColors(LocalMaterialTheme.current)
@@ -622,9 +629,16 @@ fun FullPlayerContent(
         )
     }
 
+    val paletteGradientTop = (artworkPalette.vibrant ?: artworkPalette.dominant ?: Color.Black).copy(alpha = 0.55f)
     Scaffold(
         containerColor = Color.Transparent,
-        modifier = Modifier.pointerInput(currentSheetState, queueGestureBottomExclusionPx) {
+        modifier = Modifier
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(paletteGradientTop, Color.Black.copy(alpha = 0.92f), Color.Black)
+                )
+            )
+            .pointerInput(currentSheetState, queueGestureBottomExclusionPx) {
             val queueDragActivationThresholdPx = 4.dp.toPx()
             val quickFlickVelocityThreshold = -520f
 

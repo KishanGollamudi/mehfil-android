@@ -8,6 +8,10 @@ import android.os.Build
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 /** Schedules and cancels the OS alarm backing the duration sleep timer. */
@@ -138,7 +142,20 @@ class PlaybackTimerController(
     /** The scheduled duration alarm fired: stop playback. */
     fun onDurationSleepTimerExpired() {
         alarmScheduler.cancel()
-        playerProvider().pause()
+        fadeOutAndPause()
+    }
+
+    private fun fadeOutAndPause() {
+        CoroutineScope(Dispatchers.Main.immediate).launch {
+            val player = playerProvider()
+            val startingVolume = player.volume.coerceIn(0f, 1f)
+            repeat(50) { step ->
+                player.volume = startingVolume * (49 - step) / 49f
+                delay(100L)
+            }
+            player.pause()
+            player.volume = startingVolume
+        }
     }
 
     /** Clears the end-of-track timer without touching the duration alarm (e.g. STATE_ENDED). */
@@ -166,7 +183,7 @@ class PlaybackTimerController(
             if (previousSongId == eotTargetSongId) {
                 endOfTrackTimerSongId = null
                 player.seekTo(0L)
-                player.pause()
+                fadeOutAndPause()
                 Timber.tag(TAG).d("Paused playback at end of track timer")
             }
         } else if (mediaItem?.mediaId != eotTargetSongId) {
