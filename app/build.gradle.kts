@@ -170,7 +170,6 @@ detekt {
     ignoreFailures = false
     parallel = true
     basePath = rootDir.absolutePath
-    maxIssues = 0
     baseline = file("$projectDir/config/detekt/baseline.xml")
 }
 
