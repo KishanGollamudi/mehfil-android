@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import com.lostf1sh.pixelplayeross.data.mehfil.MehfilAlbumDto
 import com.lostf1sh.pixelplayeross.data.mehfil.MehfilPlaylistDto
@@ -61,7 +62,7 @@ import com.lostf1sh.pixelplayeross.presentation.viewmodel.PlayerViewModel
 @Composable
 fun MehfilHomeCatalogSections(
     playerViewModel: PlayerViewModel,
-    navController: NavHostController,
+    navController: NavController,
     viewModel: MehfilCatalogViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()

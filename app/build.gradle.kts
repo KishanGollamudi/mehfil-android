@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.dagger.hilt.android)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.baselineprofile)
+    alias(libs.plugins.detekt)
     id("kotlin-parcelize")
 }
 
@@ -141,7 +142,9 @@ android {
     }
 
     lint {
+        abortOnError = true
         checkReleaseBuilds = false
+        warningsAsErrors = false
     }
 
     splits {
@@ -160,6 +163,15 @@ android {
         density.enableSplit = true
         language.enableSplit = true
     }
+}
+
+detekt {
+    buildUponDefaultConfig = true
+    ignoreFailures = false
+    parallel = true
+    basePath = rootDir.absolutePath
+    maxIssues = 0
+    baseline = file("$projectDir/config/detekt/baseline.xml")
 }
 
 composeCompiler {

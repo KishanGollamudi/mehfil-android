@@ -82,6 +82,7 @@ uiautomator = "2.4.0"
 benchmarkMacroJunit4 = "1.4.1"
 baselineprofile = "1.5.0-beta01"
 profileinstaller = "1.4.1"
+detekt = "1.23.8"
 
 
 [libraries]
@@ -215,5 +216,6 @@ dagger-hilt-android = { id = "com.google.dagger.hilt.android" , version.ref = "d
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp"}
 android-test = { id = "com.android.test", version.ref = "agp" }
 baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineprofile" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
