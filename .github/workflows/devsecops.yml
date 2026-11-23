@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Run Trivy filesystem scan
-        uses: aquasecurity/trivy-action@ed142fd11a6507d85058325f81d18c7758667028
+        uses: aquasecurity/trivy-action@0.36.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
