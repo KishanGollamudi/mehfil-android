@@ -50,6 +50,8 @@ import com.lostf1sh.pixelplayeross.presentation.screens.GenreDetailScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.HomeScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.LibraryScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.MashupScreen
+import com.lostf1sh.pixelplayeross.presentation.screens.MehfilAlbumPlaylistScreen
+import com.lostf1sh.pixelplayeross.presentation.screens.MehfilArtistScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.NavBarCornerRadiusScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.PaletteStyleSettingsScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.PlaylistDetailScreen
@@ -445,6 +447,48 @@ fun AppNavigation(
                             artistId = artistId,
                             navController = navController,
                             playerViewModel = playerViewModel
+                        )
+                    }
+                }
+            }
+            composable(
+                route = Screen.MehfilArtist.route,
+                arguments = listOf(navArgument("artistId") { type = NavType.StringType }),
+                enterTransition = { enterTransition() },
+                exitTransition = { exitTransition() },
+                popEnterTransition = { popEnterTransition() },
+                popExitTransition = { popExitTransition() },
+            ) { backStackEntry ->
+                backStackEntry.arguments?.getString("artistId")?.let { artistId ->
+                    ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                        MehfilArtistScreen(
+                            artistId = artistId,
+                            playerViewModel = playerViewModel,
+                            navController = navController,
+                        )
+                    }
+                }
+            }
+            composable(
+                route = Screen.MehfilTracklist.route,
+                arguments = listOf(
+                    navArgument("kind") { type = NavType.StringType },
+                    navArgument("itemId") { type = NavType.StringType },
+                ),
+                enterTransition = { enterTransition() },
+                exitTransition = { exitTransition() },
+                popEnterTransition = { popEnterTransition() },
+                popExitTransition = { popExitTransition() },
+            ) { backStackEntry ->
+                val kind = backStackEntry.arguments?.getString("kind")
+                val itemId = backStackEntry.arguments?.getString("itemId")
+                if (kind != null && itemId != null) {
+                    ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                        MehfilAlbumPlaylistScreen(
+                            kind = kind,
+                            itemId = itemId,
+                            playerViewModel = playerViewModel,
+                            navController = navController,
                         )
                     }
                 }

@@ -11,6 +11,11 @@ data class PlaybackQueueItemSnapshot(
     val albumTitle: String? = null,
     val artworkUri: String? = null,
     val durationMs: Long? = null,
+    val mehfilVideoId: String? = null,
+    val mehfilLanguage: String? = null,
+    val mehfilMood: String? = null,
+    val mehfilArtistId: String? = null,
+    val mehfilAlbumId: String? = null,
 )
 
 @Serializable

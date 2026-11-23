@@ -418,12 +418,21 @@ fun FullPlayerContent(
     }
 
     val onSongMetadataArtistClick = {
-        val resolvedArtistId = currentSongArtists.firstOrNull { it.id != 0L && it.id != -1L }?.id ?: song.artistId
-        if (currentSongArtists.size > 1) {
-            showArtistPicker = true
+        if (song.mehfilArtistId != null) {
+            playerViewModel.triggerMehfilNavigationFromPlayer("artist", song.mehfilArtistId)
         } else {
-            playerViewModel.triggerArtistNavigationFromPlayer(resolvedArtistId)
+            val resolvedArtistId = currentSongArtists.firstOrNull { it.id != 0L && it.id != -1L }?.id ?: song.artistId
+            if (currentSongArtists.size > 1) {
+                showArtistPicker = true
+            } else {
+                playerViewModel.triggerArtistNavigationFromPlayer(resolvedArtistId)
+            }
         }
+    }
+    val onSongMetadataAlbumClick = {
+        song.mehfilAlbumId?.let {
+            playerViewModel.triggerMehfilNavigationFromPlayer("album", it)
+        } ?: playerViewModel.triggerAlbumNavigationFromPlayer(song.albumId)
     }
 
     var pendingCarouselIndex by remember { mutableStateOf<Int?>(null) }
@@ -531,7 +540,9 @@ fun FullPlayerContent(
             requestedScrollIndex = pendingCarouselIndex,
             onSongSelected = onAlbumSongSelected,
             onAlbumClick = { albumSong ->
-                playerViewModel.triggerAlbumNavigationFromPlayer(albumSong.albumId)
+                albumSong.mehfilAlbumId?.let {
+                    playerViewModel.triggerMehfilNavigationFromPlayer("album", it)
+                } ?: playerViewModel.triggerAlbumNavigationFromPlayer(albumSong.albumId)
             },
             modifier = modifier
         )
@@ -602,6 +613,7 @@ fun FullPlayerContent(
             chipContentColor = playerAccentColor,
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
+            onAlbumClick = onSongMetadataAlbumClick,
             isPlayingProvider = isPlayingProvider
         )
     }
@@ -625,6 +637,7 @@ fun FullPlayerContent(
             chipContentColor = playerAccentColor,
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
+            onAlbumClick = onSongMetadataAlbumClick,
             isPlayingProvider = isPlayingProvider
         )
     }
@@ -1219,6 +1232,7 @@ private fun FullPlayerSongMetadataSection(
     chipContentColor: Color,
     onQueueClick: () -> Unit,
     onArtistClick: () -> Unit,
+    onAlbumClick: () -> Unit,
     isPlayingProvider: () -> Boolean = { true }
 ) {
     val shouldDelay = loadingTweaks.delayAll || loadingTweaks.delaySongMetadata
@@ -1264,6 +1278,7 @@ private fun FullPlayerSongMetadataSection(
             showQueueButton = isLandscape,
             onClickQueue = onQueueClick,
             onClickArtist = onArtistClick,
+            onClickAlbum = onAlbumClick,
             isPlayingProvider = isPlayingProvider
         )
     }
@@ -1363,6 +1378,7 @@ private fun SongMetadataDisplaySection(
     showQueueButton: Boolean,
     onClickQueue: () -> Unit,
     onClickArtist: () -> Unit,
+    onClickAlbum: () -> Unit,
     modifier: Modifier = Modifier,
     isPlayingProvider: () -> Boolean = { true }
 ) {
@@ -1385,6 +1401,8 @@ private fun SongMetadataDisplaySection(
                 gradientEdgeColor = gradientEdgeColor,
                 playerViewModel = playerViewModel,
                 onClickArtist = onClickArtist,
+                album = currentSong.album,
+                onClickAlbum = onClickAlbum,
                 modifier = Modifier
                     .weight(1f)
                     .align(Alignment.CenterVertically),
@@ -2013,6 +2031,8 @@ private fun PlayerSongInfo(
     gradientEdgeColor: Color,
     playerViewModel: PlayerViewModel,
     onClickArtist: () -> Unit,
+    album: String,
+    onClickAlbum: () -> Unit,
     modifier: Modifier = Modifier,
     isPlayingProvider: () -> Boolean = { true }
 ) {
@@ -2091,6 +2111,15 @@ private fun PlayerSongInfo(
             ),
             canScroll = isPlayingProvider()
         )
+        if (album.isNotBlank()) {
+            Text(
+                text = album,
+                style = MaterialTheme.typography.bodySmall.copy(color = artistTextColor),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onClickAlbum),
+            )
+        }
     }
 }
 

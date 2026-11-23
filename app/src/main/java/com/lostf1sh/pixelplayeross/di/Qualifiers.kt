@@ -36,3 +36,7 @@ annotation class AppScope
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class ListenBrainzRetrofit
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class MehfilCatalogRetrofit

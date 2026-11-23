@@ -565,6 +565,8 @@ class PlayerViewModel @Inject constructor(
     val albumNavigationRequests = _albumNavigationRequests.asSharedFlow()
     private val _artistNavigationRequests = MutableSharedFlow<Long>(extraBufferCapacity = 1)
     val artistNavigationRequests = _artistNavigationRequests.asSharedFlow()
+    private val _mehfilNavigationRequests = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 1)
+    val mehfilNavigationRequests = _mehfilNavigationRequests.asSharedFlow()
     private val _searchNavDoubleTapEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val searchNavDoubleTapEvents = _searchNavDoubleTapEvents.asSharedFlow()
     
@@ -2071,6 +2073,18 @@ class PlayerViewModel @Inject constructor(
         _sheetState.value = PlayerSheetState.COLLAPSED
         if (resetPredictiveState) {
             resetPredictiveBackState()
+        }
+    }
+
+    fun triggerMehfilNavigationFromPlayer(kind: String, id: String) {
+        if (id.isBlank()) return
+        viewModelScope.launch {
+            collapsePlayerSheet()
+            withTimeoutOrNull(900) {
+                awaitSheetState(PlayerSheetState.COLLAPSED)
+                awaitPlayerCollapse()
+            }
+            _mehfilNavigationRequests.emit(kind to id)
         }
     }
 

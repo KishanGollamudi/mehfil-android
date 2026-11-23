@@ -18,6 +18,7 @@ import com.lostf1sh.pixelplayeross.data.database.SongEntity
 import com.lostf1sh.pixelplayeross.data.database.SourceType
 import com.lostf1sh.pixelplayeross.data.database.toSong
 import com.lostf1sh.pixelplayeross.data.model.Song
+import com.lostf1sh.pixelplayeross.data.mehfil.MehfilCatalogRepository
 import com.lostf1sh.pixelplayeross.data.navidrome.model.NavidromeAuthMethod
 import com.lostf1sh.pixelplayeross.data.navidrome.model.NavidromeCredentials
 import com.lostf1sh.pixelplayeross.data.navidrome.model.NavidromeMusicFolder
@@ -64,6 +65,7 @@ import androidx.core.content.edit
 @Singleton
 class NavidromeRepository @Inject constructor(
     private val api: NavidromeApiService,
+    private val mehfilCatalogRepository: MehfilCatalogRepository,
     private val dao: NavidromeDao,
     private val musicDao: MusicDao,
     private val playlistPreferencesRepository: PlaylistPreferencesRepository,
@@ -215,6 +217,10 @@ class NavidromeRepository @Inject constructor(
                     )
                 }
 
+                mehfilCatalogRepository.authenticate(username, password).onFailure {
+                    Timber.w(it, "$TAG: Catalog API sign-in failed; Subsonic playback remains available")
+                }
+
                 val authSalt = SecureRandom().generateSeed(16).joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
                 val authToken = md5Hex(password + authSalt)
                 prefs.edit {
@@ -245,6 +251,9 @@ class NavidromeRepository @Inject constructor(
      */
     suspend fun logout() {
         Timber.d("$TAG: Logging out")
+        mehfilCatalogRepository.logout().onFailure {
+            Timber.w(it, "$TAG: Catalog sign-out failed")
+        }
         api.clearCredentials()
         prefs.edit { clear() }
 

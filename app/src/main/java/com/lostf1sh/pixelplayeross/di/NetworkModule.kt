@@ -2,6 +2,9 @@ package com.lostf1sh.pixelplayeross.di
 
 import com.lostf1sh.pixelplayeross.data.listenbrainz.ListenBrainzApiService
 import com.lostf1sh.pixelplayeross.data.listenbrainz.ListenBrainzEndpoint
+import com.lostf1sh.pixelplayeross.data.mehfil.MehfilApiService
+import com.lostf1sh.pixelplayeross.data.mehfil.MehfilSessionCookieJar
+import com.lostf1sh.pixelplayeross.data.navidrome.model.NavidromeCredentials
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -14,6 +17,24 @@ import retrofit2.converter.gson.GsonConverterFactory
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+
+    @Provides
+    @Singleton
+    @MehfilCatalogRetrofit
+    fun provideMehfilCatalogRetrofit(
+        okHttpClient: OkHttpClient,
+        cookieJar: MehfilSessionCookieJar,
+    ): Retrofit = Retrofit.Builder()
+        .baseUrl("${NavidromeCredentials.SERVER_URL}/")
+        .client(okHttpClient.newBuilder().cookieJar(cookieJar).build())
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    @Provides
+    @Singleton
+    fun provideMehfilApiService(
+        @MehfilCatalogRetrofit retrofit: Retrofit,
+    ): MehfilApiService = retrofit.create(MehfilApiService::class.java)
 
     @Provides
     @Singleton

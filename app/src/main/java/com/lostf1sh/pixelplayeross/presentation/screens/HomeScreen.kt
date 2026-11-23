@@ -472,6 +472,13 @@ fun HomeScreen(
                         )
                     }
                 }
+
+                item(key = "mehfil_catalog_sections") {
+                    MehfilHomeCatalogSections(
+                        playerViewModel = playerViewModel,
+                        navController = navController,
+                    )
+                }
             }
         }
         Box(

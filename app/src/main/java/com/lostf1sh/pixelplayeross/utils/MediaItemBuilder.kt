@@ -101,6 +101,11 @@ object MediaItemBuilder {
     const val EXTERNAL_EXTRA_SAMPLE_RATE = EXTERNAL_EXTRA_PREFIX + "SAMPLE_RATE"
     const val EXTERNAL_EXTRA_FILE_PATH = EXTERNAL_EXTRA_PREFIX + "FILE_PATH"
     const val EXTERNAL_EXTRA_NAVIDROME_ID = EXTERNAL_EXTRA_PREFIX + "NAVIDROME_ID"
+    const val MEHFIL_EXTRA_VIDEO_ID = EXTERNAL_EXTRA_PREFIX + "MEHFIL_VIDEO_ID"
+    const val MEHFIL_EXTRA_LANGUAGE = EXTERNAL_EXTRA_PREFIX + "MEHFIL_LANGUAGE"
+    const val MEHFIL_EXTRA_MOOD = EXTERNAL_EXTRA_PREFIX + "MEHFIL_MOOD"
+    const val MEHFIL_EXTRA_ARTIST_ID = EXTERNAL_EXTRA_PREFIX + "MEHFIL_ARTIST_ID"
+    const val MEHFIL_EXTRA_ALBUM_ID = EXTERNAL_EXTRA_PREFIX + "MEHFIL_ALBUM_ID"
 
     fun build(song: Song): MediaItem {
         return MediaItem.Builder()
@@ -311,6 +316,11 @@ object MediaItemBuilder {
             putInt(EXTERNAL_EXTRA_SAMPLE_RATE, song.sampleRate ?: 0)
             putString(EXTERNAL_EXTRA_FILE_PATH, song.path)
             song.navidromeId?.let { putString(EXTERNAL_EXTRA_NAVIDROME_ID, it) }
+            song.mehfilVideoId?.let { putString(MEHFIL_EXTRA_VIDEO_ID, it) }
+            song.mehfilLanguage?.let { putString(MEHFIL_EXTRA_LANGUAGE, it) }
+            song.mehfilMood?.let { putString(MEHFIL_EXTRA_MOOD, it) }
+            song.mehfilArtistId?.let { putString(MEHFIL_EXTRA_ARTIST_ID, it) }
+            song.mehfilAlbumId?.let { putString(MEHFIL_EXTRA_ALBUM_ID, it) }
         }
 
         metadataBuilder.setExtras(extras)

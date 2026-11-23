@@ -388,86 +388,197 @@ fun SearchScreen(
                         )
                     }
                 ) {
-                    when {
-                        searchQuery.isBlank() -> Text("Type to search")
-                        isServerSearchLoading -> CircularProgressIndicator()
-                        serverSearchError != null -> Text(
-                            text = serverSearchError.orEmpty(),
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(horizontal = 24.dp)
-                        )
-                        serverSearchState.artists.isEmpty() &&
-                            serverSearchState.albums.isEmpty() &&
-                            serverResults.isEmpty() -> Text("No results found")
-                        else -> LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(
-                                bottom = systemNavBarInset + bottomBarHeightDp + MiniPlayerHeight + 24.dp
-                            )
+                    Column(Modifier.fillMaxSize()) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            serverSearchState.artists.firstOrNull()?.let { artist ->
-                                item(key = "artist_${artist.id}") {
-                                    Card(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                                            .clickable {
-                                                navController.navigateSafely(Screen.ArtistDetail.createRoute(artist.id))
-                                            },
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                        )
-                                    ) {
+                            SearchFilterChip(SearchFilterType.ALL, currentFilter, playerViewModel)
+                            SearchFilterChip(SearchFilterType.SONGS, currentFilter, playerViewModel)
+                            SearchFilterChip(SearchFilterType.ARTISTS, currentFilter, playerViewModel)
+                            SearchFilterChip(SearchFilterType.ALBUMS, currentFilter, playerViewModel)
+                        }
+                        when {
+                            searchQuery.isBlank() -> Text("Type to search")
+                            isServerSearchLoading -> CircularProgressIndicator()
+                            serverSearchError != null -> Text(
+                                text = serverSearchError.orEmpty(),
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(horizontal = 24.dp)
+                            )
+                            serverSearchState.artists.isEmpty() &&
+                                serverSearchState.albums.isEmpty() &&
+                                serverResults.isEmpty() &&
+                                serverSearchState.playlists.isEmpty() -> Text("No results found")
+                            else -> LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(
+                                    bottom = systemNavBarInset + bottomBarHeightDp + MiniPlayerHeight + 24.dp
+                                )
+                            ) {
+                                if (currentFilter == SearchFilterType.ALL) {
+                                    serverSearchState.topQuery?.let { top ->
+                                        val topId = top.id ?: top.videoId
+                                        item(key = "catalog_top_result") {
+                                            Card(
+                                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                                                    .clickable {
+                                                        when (top.type.lowercase()) {
+                                                            "artist" -> topId?.let {
+                                                                navController.navigateSafely(Screen.MehfilArtist.createRoute(it))
+                                                            }
+                                                            "album" -> topId?.let {
+                                                                navController.navigateSafely(Screen.MehfilTracklist.createRoute("album", it))
+                                                            }
+                                                            "playlist" -> topId?.let {
+                                                                navController.navigateSafely(Screen.MehfilTracklist.createRoute("playlist", it))
+                                                            }
+                                                            "song" -> serverResults.firstOrNull { it.mehfilVideoId == topId }?.let {
+                                                                playerViewModel.playSongs(serverResults, it, "Search")
+                                                            }
+                                                        }
+                                                    },
+                                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                                            ) {
+                                                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                    SmartImage(
+                                                        model = top.artwork ?: top.image,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(78.dp).clip(RoundedCornerShape(12.dp)),
+                                                    )
+                                                    Column(Modifier.padding(start = 14.dp)) {
+                                                        Text("Top Result", style = MaterialTheme.typography.labelLarge,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        Text(top.title ?: top.name ?: top.artist.orEmpty(),
+                                                            style = MaterialTheme.typography.titleLarge, maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis)
+                                                        Text(top.type.replaceFirstChar { it.uppercase() },
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if (currentFilter == SearchFilterType.ALL || currentFilter == SearchFilterType.ARTISTS) {
+                                    if (serverSearchState.artists.isNotEmpty()) {
+                                        item(key = "artists_header") {
+                                            Text("Artists", style = MaterialTheme.typography.titleMedium,
+                                                modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 8.dp))
+                                        }
+                                        item(key = "artists_row") {
+                                            LazyRow(
+                                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                            ) {
+                                                items(serverSearchState.artists, key = { it.id }) { artist ->
+                                                    Column(
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        modifier = Modifier.width(88.dp).clickable {
+                                                            navController.navigateSafely(Screen.MehfilArtist.createRoute(artist.id))
+                                                        },
+                                                    ) {
+                                                        SmartImage(
+                                                            model = serverSearchViewModel.coverArtUrl(artist.coverArt, 240),
+                                                            contentDescription = artist.name,
+                                                            modifier = Modifier.size(76.dp).clip(CircleShape),
+                                                            targetSize = SmartImageListTargetSize,
+                                                        )
+                                                        Text(artist.name, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            modifier = Modifier.padding(top = 6.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if (currentFilter == SearchFilterType.ALL || currentFilter == SearchFilterType.ALBUMS) {
+                                    if (serverSearchState.albums.isNotEmpty()) {
+                                        item(key = "albums_header") {
+                                            Text("Albums", style = MaterialTheme.typography.titleMedium,
+                                                modifier = Modifier.padding(16.dp))
+                                        }
+                                        item(key = "albums_row") {
+                                            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                contentPadding = PaddingValues(horizontal = 16.dp)) {
+                                                items(serverSearchState.albums, key = { it.id }) { album ->
+                                                    ElevatedCard(
+                                                        modifier = Modifier.width(124.dp).clickable {
+                                                            navController.navigateSafely(
+                                                                Screen.MehfilTracklist.createRoute("album", album.id)
+                                                            )
+                                                        },
+                                                        elevation = CardDefaults.elevatedCardElevation(),
+                                                    ) {
+                                                        SmartImage(
+                                                            model = serverSearchViewModel.coverArtUrl(album.coverArt, 240),
+                                                            contentDescription = album.name,
+                                                            modifier = Modifier.size(124.dp),
+                                                            targetSize = SmartImageListTargetSize,
+                                                        )
+                                                        Text(album.name, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                                                        Text(album.artist, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if (currentFilter == SearchFilterType.ALL && serverSearchState.playlists.isNotEmpty()) {
+                                    item(key = "playlists_header") {
+                                        Text("Playlists", style = MaterialTheme.typography.titleMedium,
+                                            modifier = Modifier.padding(16.dp))
+                                    }
+                                    items(serverSearchState.playlists, key = { it.id }) { playlist ->
                                         Row(
-                                            modifier = Modifier.padding(16.dp),
-                                            verticalAlignment = Alignment.CenterVertically
+                                            Modifier.fillMaxWidth().clickable {
+                                                navController.navigateSafely(
+                                                    Screen.MehfilTracklist.createRoute("playlist", playlist.id)
+                                                )
+                                            }.padding(horizontal = 16.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             SmartImage(
-                                                model = serverSearchViewModel.coverArtUrl(artist.coverArt, 240),
-                                                contentDescription = artist.name,
-                                                modifier = Modifier.size(96.dp).clip(CircleShape),
-                                                targetSize = SmartImageListTargetSize
+                                                model = playlist.artwork,
+                                                contentDescription = playlist.title,
+                                                modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)),
                                             )
-                                            Spacer(Modifier.width(16.dp))
-                                            Column {
-                                                Text("Top Result", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                Text(artist.name, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                Text("Artist • ${artist.albumCount} albums", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
+                                            Text(playlist.title, style = MaterialTheme.typography.titleSmall,
+                                                modifier = Modifier.padding(start = 12.dp))
                                         }
                                     }
                                 }
-                            }
-                            if (serverSearchState.albums.isNotEmpty()) {
-                                item(key = "albums_header") { Text("Albums", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp)) }
-                                item(key = "albums_row") {
-                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(horizontal = 16.dp)) {
-                                        items(serverSearchState.albums, key = { it.id }) { album ->
-                                            ElevatedCard(
-                                                modifier = Modifier.width(120.dp).clickable { navController.navigateSafely(Screen.AlbumDetail.createRoute(album.id)) },
-                                                elevation = CardDefaults.elevatedCardElevation()
-                                            ) {
-                                                SmartImage(
-                                                    model = serverSearchViewModel.coverArtUrl(album.coverArt, 240),
-                                                    contentDescription = album.name,
-                                                    modifier = Modifier.size(120.dp),
-                                                    targetSize = SmartImageListTargetSize
-                                                )
-                                                Text(album.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                                                Text(album.artist, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                                            }
+                                if (currentFilter == SearchFilterType.ALL || currentFilter == SearchFilterType.SONGS) {
+                                    if (serverResults.isNotEmpty()) {
+                                        item(key = "songs_header") {
+                                            Text("Songs", style = MaterialTheme.typography.titleMedium,
+                                                modifier = Modifier.padding(16.dp))
+                                        }
+                                        items(serverResults, key = { it.id }) { song ->
+                                            MehfilSearchSongRow(
+                                                song = song,
+                                                isPlaying = stablePlayerState.currentSong?.id == song.id && stablePlayerState.isPlaying,
+                                                onClick = { playerViewModel.playSongs(serverResults, song, "Search") },
+                                                onArtistClick = {
+                                                    song.mehfilArtistId?.let {
+                                                        navController.navigateSafely(Screen.MehfilArtist.createRoute(it))
+                                                    }
+                                                },
+                                                onAlbumClick = {
+                                                    song.mehfilAlbumId?.let {
+                                                        navController.navigateSafely(
+                                                            Screen.MehfilTracklist.createRoute("album", it)
+                                                        )
+                                                    }
+                                                },
+                                            )
                                         }
                                     }
-                                }
-                            }
-                            if (serverResults.isNotEmpty()) {
-                                item(key = "songs_header") { Text("Songs", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp)) }
-                                items(serverResults, key = { it.id }) { song ->
-                                    ExpressiveSongListItem(
-                                        song = song,
-                                        isPlaying = stablePlayerState.currentSong?.id == song.id && stablePlayerState.isPlaying,
-                                        onClick = { playerViewModel.showAndPlaySong(song, serverResults, "Server Search") }
-                                    )
                                 }
                             }
                         }
@@ -603,16 +714,20 @@ fun SearchScreen(
                 },
                 onDeleteFromDevice = playerViewModel::deleteFromDevice,
                 onNavigateToAlbum = {
-                    navController.navigateSafelyReplacing(
+                    currentSong.mehfilAlbumId?.let {
+                        navController.navigateSafely(Screen.MehfilTracklist.createRoute("album", it))
+                    } ?: navController.navigateSafelyReplacing(
                         route = Screen.AlbumDetail.createRoute(currentSong.albumId),
-                        patternToPop = Screen.AlbumDetail.route
+                        patternToPop = Screen.AlbumDetail.route,
                     )
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtist = {
-                    navController.navigateSafelyReplacing(
+                    currentSong.mehfilArtistId?.let {
+                        navController.navigateSafely(Screen.MehfilArtist.createRoute(it))
+                    } ?: navController.navigateSafelyReplacing(
                         route = Screen.ArtistDetail.createRoute(currentSong.artistId),
-                        patternToPop = Screen.ArtistDetail.route
+                        patternToPop = Screen.ArtistDetail.route,
                     )
                     showSongInfoBottomSheet = false
                 },
@@ -658,6 +773,59 @@ fun SearchScreen(
                     bottomBarHeight = bottomBarHeightDp,
                     playerViewModel = playerViewModel,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MehfilSearchSongRow(
+    song: Song,
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    onArtistClick: () -> Unit,
+    onAlbumClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SmartImage(
+            model = song.albumArtUriString,
+            contentDescription = song.title,
+            modifier = Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)),
+            targetSize = SmartImageListTargetSize,
+        )
+        Column(Modifier.weight(1f).padding(start = 14.dp)) {
+            Text(
+                song.title,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row {
+                Text(
+                    song.displayArtist,
+                    modifier = Modifier.clickable(enabled = song.mehfilArtistId != null, onClick = onArtistClick),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (song.album.isNotBlank()) {
+                    Text(" • ", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        song.album,
+                        modifier = Modifier.clickable(enabled = song.mehfilAlbumId != null, onClick = onAlbumClick),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }

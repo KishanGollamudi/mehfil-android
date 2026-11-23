@@ -43,6 +43,7 @@ import com.lostf1sh.pixelplayeross.MainActivity
 import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.diagnostics.AdvancedPerformanceDiagnostics
 import com.lostf1sh.pixelplayeross.data.model.PlayerInfo
+import com.lostf1sh.pixelplayeross.data.mehfil.MehfilCatalogRepository
 import com.lostf1sh.pixelplayeross.data.model.PlaybackQueueItemSnapshot
 import com.lostf1sh.pixelplayeross.data.model.PlaybackQueueSnapshot
 import com.lostf1sh.pixelplayeross.data.preferences.EqualizerPreferencesRepository
@@ -174,6 +175,8 @@ class MusicService : MediaSessionService() {
     lateinit var replayGainManager: com.lostf1sh.pixelplayeross.data.media.ReplayGainManager
     @Inject
     lateinit var navidromeRepository: NavidromeRepository
+    @Inject
+    lateinit var mehfilCatalogRepository: MehfilCatalogRepository
     @Inject
     lateinit var listeningStatsTracker: ListeningStatsTracker
     @Inject
@@ -1026,6 +1029,7 @@ class MusicService : MediaSessionService() {
 
     private var consecutivePlaybackErrors = 0
     private val maxConsecutivePlaybackErrors = 5
+    private var requestedRadioSeedId: String? = null
 
     private val playerListener = object : Player.Listener {
         override fun onVolumeChanged(volume: Float) {
@@ -1081,6 +1085,7 @@ class MusicService : MediaSessionService() {
             Timber.tag(TAG).d("Playback state changed: $playbackState")
             if (playbackState == Player.STATE_READY) {
                 consecutivePlaybackErrors = 0
+                requestedRadioSeedId = null
             }
             if (playbackState == Player.STATE_ENDED) {
                 listeningStatsTracker.finalizeCurrentSession()
@@ -1094,11 +1099,62 @@ class MusicService : MediaSessionService() {
                 playbackTimerController.clearEndOfTrackTimer()
                 reportNavidromePlayback("stopped")
                 stopNavidromePlaybackReporting()
+                requestMehfilRadioIfNeeded(mediaItem)
             } else {
                 syncLocalListeningStatsFromPlayer(mediaSession?.player ?: engine.masterPlayer)
             }
             mediaSession?.let { refreshMediaSessionUi(it) }
             schedulePlaybackSnapshotPersist(immediate = playbackState == Player.STATE_IDLE)
+        }
+
+        private fun requestMehfilRadioIfNeeded(mediaItem: MediaItem?) {
+            val seedItem = mediaItem ?: return
+            val extras = seedItem.mediaMetadata.extras ?: return
+            val videoId = extras.getString(MediaItemBuilder.MEHFIL_EXTRA_VIDEO_ID)
+                ?.takeIf(String::isNotBlank) ?: return
+            val player = engine.masterPlayer
+            if (player.mediaItemCount == 0 ||
+                player.playbackState != Player.STATE_ENDED ||
+                player.repeatMode != Player.REPEAT_MODE_OFF ||
+                player.currentMediaItem?.mediaId != seedItem.mediaId ||
+                player.currentMediaItemIndex != player.mediaItemCount - 1
+            ) return
+            if (requestedRadioSeedId == videoId) return
+            requestedRadioSeedId = videoId
+
+            appScope.launch {
+                try {
+                    val recommendations = withContext(Dispatchers.IO) {
+                        mehfilCatalogRepository.radio(
+                            videoId = videoId,
+                            language = extras.getString(MediaItemBuilder.MEHFIL_EXTRA_LANGUAGE),
+                            artist = seedItem.mediaMetadata.artist?.toString(),
+                            mood = extras.getString(MediaItemBuilder.MEHFIL_EXTRA_MOOD),
+                        )
+                    }
+                    if (recommendations.isEmpty() ||
+                        player.playbackState != Player.STATE_ENDED ||
+                        player.repeatMode != Player.REPEAT_MODE_OFF ||
+                        player.currentMediaItem?.mediaId != seedItem.mediaId ||
+                        player.currentMediaItemIndex != player.mediaItemCount - 1
+                    ) return@launch
+                    val queuedIds = (0 until player.mediaItemCount)
+                        .map { player.getMediaItemAt(it).mediaId }
+                        .toHashSet()
+                    val newItems = recommendations
+                        .filter { it.id !in queuedIds }
+                        .map { MediaItemBuilder.build(it) }
+                    if (newItems.isEmpty()) return@launch
+                    player.addMediaItems(newItems)
+                    player.seekToNext()
+                    player.prepare()
+                    player.play()
+                    Timber.tag(TAG).i("Added %d Mehfil radio tracks", newItems.size)
+                } catch (error: Exception) {
+                    if (error is kotlinx.coroutines.CancellationException) throw error
+                    Timber.tag(TAG).w(error, "Mehfil radio recommendations failed")
+                }
+            }
         }
 
         override fun onTimelineChanged(timeline: Timeline, reason: Int) {
@@ -1406,6 +1462,11 @@ class MusicService : MediaSessionService() {
                 durationMs = metadata.extras
                     ?.getLong(MediaItemBuilder.EXTERNAL_EXTRA_DURATION)
                     ?.takeIf { it > 0L },
+                mehfilVideoId = metadata.extras?.getString(MediaItemBuilder.MEHFIL_EXTRA_VIDEO_ID),
+                mehfilLanguage = metadata.extras?.getString(MediaItemBuilder.MEHFIL_EXTRA_LANGUAGE),
+                mehfilMood = metadata.extras?.getString(MediaItemBuilder.MEHFIL_EXTRA_MOOD),
+                mehfilArtistId = metadata.extras?.getString(MediaItemBuilder.MEHFIL_EXTRA_ARTIST_ID),
+                mehfilAlbumId = metadata.extras?.getString(MediaItemBuilder.MEHFIL_EXTRA_ALBUM_ID),
             )
         }
         return snapshotItems
@@ -1530,6 +1591,11 @@ class MusicService : MediaSessionService() {
             snapshotItem.durationMs?.takeIf { it > 0L }?.let {
                 putLong(MediaItemBuilder.EXTERNAL_EXTRA_DURATION, it)
             }
+            snapshotItem.mehfilVideoId?.let { putString(MediaItemBuilder.MEHFIL_EXTRA_VIDEO_ID, it) }
+            snapshotItem.mehfilLanguage?.let { putString(MediaItemBuilder.MEHFIL_EXTRA_LANGUAGE, it) }
+            snapshotItem.mehfilMood?.let { putString(MediaItemBuilder.MEHFIL_EXTRA_MOOD, it) }
+            snapshotItem.mehfilArtistId?.let { putString(MediaItemBuilder.MEHFIL_EXTRA_ARTIST_ID, it) }
+            snapshotItem.mehfilAlbumId?.let { putString(MediaItemBuilder.MEHFIL_EXTRA_ALBUM_ID, it) }
         }
         metadataBuilder.setExtras(extras)
 

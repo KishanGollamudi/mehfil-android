@@ -58,6 +58,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.lostf1sh.pixelplayeross.presentation.navigation.Screen
+import com.lostf1sh.pixelplayeross.presentation.navigation.navigateSafelyReplacing
 import com.lostf1sh.pixelplayeross.data.model.Song
 import com.lostf1sh.pixelplayeross.data.preferences.sanitizeNavBarCornerRadius
 import com.lostf1sh.pixelplayeross.presentation.components.scoped.PlayerAlbumNavigationEffect
@@ -85,6 +87,7 @@ import com.lostf1sh.pixelplayeross.presentation.viewmodel.StablePlayerState
 import com.lostf1sh.pixelplayeross.ui.theme.LocalPixelPlayerDarkTheme
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -255,6 +258,14 @@ fun UnifiedPlayerSheetV2(
         sheetMotionController = sheetMotionController,
         playerViewModel = playerViewModel
     )
+    LaunchedEffect(navController) {
+        playerViewModel.mehfilNavigationRequests.collectLatest { (kind, id) ->
+            navController.navigateSafelyReplacing(
+                route = Screen.MehfilTracklist.createRoute(kind, id),
+                patternToPop = Screen.MehfilTracklist.route,
+            )
+        }
+    }
 
     val fullPlayerVisualState = rememberFullPlayerVisualState(
         expansionFraction = playerContentExpansionFraction,
